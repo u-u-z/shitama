@@ -1,0 +1,27 @@
+
+version: "{build}"
+
+clone_folder: c:\gopath\src\github.com\evshiron\shitama
+
+environment:
+  GOPATH: c:\gopath
+
+install:
+  - set QTDIR=C:\Qt\5.8\mingw53_32
+  - set PATH=%PATH%;%QTDIR%\bin;C:\MinGW\bin
+
+build_script:
+  - cmd: .\scripts\build_client_dist.bat
+
+deploy:
+  provider: GitHub
+  release: Shitama-alpha
+  description: 'Shitama alpha via AppVeyor'
+  draft: true
+  prerelease: true
+  auth_token:
+    secure: xCaen1KT4SjLSk39zHb+F1m3KfMgHhJfRUiLxqt+rC0BkejW+kmv5iN2Oh7Druzf
+
+artifacts:
+  - path: .\dist\Shitama.7z
+    name: Shitama
