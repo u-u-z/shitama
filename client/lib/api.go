@@ -50,7 +50,17 @@ func (a *API) Start() {
 
 	})
 
-	go http.ListenAndServe("127.0.0.1:61337", server)
+	go (func() {
+
+		err := http.ListenAndServe("127.0.0.1:61337", server)
+
+		if err != nil {
+			a.parent.logger.WithFields(logrus.Fields{
+				"scope": "api/Start",
+			}).Fatal(err)
+		}
+
+	})()
 
 }
 

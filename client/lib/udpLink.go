@@ -3,63 +3,63 @@ package client
 import (
 	"net"
 
+	"encoding/binary"
+
 	"github.com/sirupsen/logrus"
 )
 
-type UDPLinkPeer struct {
-	parent   *UDPLink
-	peerAddr net.Addr
-	pc       net.PacketConn
+type UDPLinkDummy struct {
+	parent    *UDPLink
+	guestAddr *net.UDPAddr
+	pc        net.PacketConn
 }
 
-func NewUDPLinkPeer(parent *UDPLink, peerAddr net.Addr) *UDPLinkPeer {
+func NewUDPLinkDummy(parent *UDPLink, guestAddr *net.UDPAddr) *UDPLinkDummy {
 
-	p := new(UDPLinkPeer)
-	p.parent = parent
-	p.peerAddr = peerAddr
+	d := new(UDPLinkDummy)
+	d.parent = parent
+	d.guestAddr = guestAddr
 
-	return p
+	return d
 
 }
 
-func (p *UDPLinkPeer) Start() {
+func (d *UDPLinkDummy) Start() {
 
 	pc, err := net.ListenPacket("udp4", "0.0.0.0:0")
 
 	if err != nil {
-		p.parent.parent.logger.WithFields(logrus.Fields{
-			"scope": "udpLink/peer/Start",
+		d.parent.parent.logger.WithFields(logrus.Fields{
+			"scope": "udpLink/dummy/Start",
 		}).Fatal(err)
 	}
 
-	p.pc = pc
+	d.pc = pc
 
-	go p.handleConnection()
+	go d.handleConnection()
 
 }
 
-func (p *UDPLinkPeer) Stop() {
-	p.pc.Close()
+func (d *UDPLinkDummy) Stop() {
+	d.pc.Close()
 }
 
-func (p *UDPLinkPeer) handleConnection() {
+func (d *UDPLinkDummy) handleConnection() {
 
 	buf := make([]byte, 1536)
 
 	for {
 
-		n, _, err := p.pc.ReadFrom(buf)
+		n, _, err := d.pc.ReadFrom(buf)
 
 		if err != nil {
-			p.parent.parent.logger.WithFields(logrus.Fields{
-				"scope": "udpLink/peer/Start",
+			d.parent.parent.logger.WithFields(logrus.Fields{
+				"scope": "udpLink/dummy/handleConnection",
 			}).Warn(err)
 			break
 		}
 
-		//log.Printf("peer server receives %d bytes from %s", n, addr.String())
-
-		p.parent.pc.WriteTo(buf[0:n], p.peerAddr)
+		d.parent.pc.WriteTo(d.parent.packData(d.guestAddr, buf[:n]), d.parent.hostAddr)
 
 	}
 
@@ -69,7 +69,7 @@ type UDPLink struct {
 	GameAddr net.Addr
 	parent   *Client
 	pc       net.PacketConn
-	peers    map[string]*UDPLinkPeer
+	dummies  map[string]*UDPLinkDummy
 	hostAddr net.Addr
 }
 
@@ -79,7 +79,7 @@ func NewUDPLink(parent *Client, hostAddr net.Addr) *UDPLink {
 	l.GameAddr, _ = net.ResolveUDPAddr("udp4", "127.0.0.1:10800")
 	l.parent = parent
 	l.hostAddr = hostAddr
-	l.peers = make(map[string]*UDPLinkPeer)
+	l.dummies = make(map[string]*UDPLinkDummy)
 
 	return l
 
@@ -97,7 +97,7 @@ func (l *UDPLink) Start() {
 
 	l.pc = pc
 
-	pc.WriteTo([]byte("PHAMTOM"), l.hostAddr)
+	pc.WriteTo([]byte("PHANTOM"), l.hostAddr)
 
 	go l.handleConnection()
 
@@ -105,9 +105,9 @@ func (l *UDPLink) Start() {
 
 func (l *UDPLink) Stop() {
 
-	for addr, peer := range l.peers {
+	for addr, peer := range l.dummies {
 		peer.Stop()
-		delete(l.peers, addr)
+		delete(l.dummies, addr)
 	}
 
 	l.pc.Close()
@@ -120,7 +120,7 @@ func (l *UDPLink) handleConnection() {
 
 	for {
 
-		n, addr, err := l.pc.ReadFrom(buf)
+		n, _, err := l.pc.ReadFrom(buf)
 
 		if err != nil {
 			l.parent.logger.WithFields(logrus.Fields{
@@ -129,21 +129,74 @@ func (l *UDPLink) handleConnection() {
 			break
 		}
 
-		//log.Printf("udp server receives %d bytes from %s", n, addr)
+		guestAddr, data := l.unpackData(buf[:n])
+		guestKey := guestAddr.String()
 
-		if _, ok := l.peers[addr.String()]; !ok {
-			l.newPeer(addr)
+		if _, ok := l.dummies[guestKey]; !ok {
+			l.newDummy(guestAddr)
 		}
 
-		l.peers[addr.String()].pc.WriteTo(buf[0:n], l.GameAddr)
+		l.dummies[guestKey].pc.WriteTo(data, l.GameAddr)
 
 	}
 
 }
 
-func (l *UDPLink) newPeer(peerAddr net.Addr) *UDPLinkPeer {
-	p := NewUDPLinkPeer(l, peerAddr)
-	l.peers[peerAddr.String()] = p
+func (l *UDPLink) newDummy(peerAddr *net.UDPAddr) *UDPLinkDummy {
+	p := NewUDPLinkDummy(l, peerAddr)
+	l.dummies[peerAddr.String()] = p
 	p.Start()
 	return p
+}
+
+func (l *UDPLink) packData(addr *net.UDPAddr, data []byte) []byte {
+
+	/*
+
+		buffer := new(bytes.Buffer)
+
+		encoder := gob.NewEncoder(buffer)
+		encoder.Encode(addr)
+		encoder.Encode(data)
+
+		return buffer.Bytes()
+
+	*/
+
+	buf := make([]byte, len(data)+6)
+
+	copy(buf[:4], addr.IP[len(addr.IP)-4:])
+	binary.BigEndian.PutUint16(buf[4:6], uint16(addr.Port))
+	copy(buf[6:], data)
+
+	return buf
+
+}
+
+func (l *UDPLink) unpackData(buf []byte) (addr *net.UDPAddr, data []byte) {
+
+	/*
+
+		buffer := bytes.NewBuffer(buf)
+
+		decoder := gob.NewDecoder(buffer)
+		decoder.Decode(&addr)
+		decoder.Decode(&data)
+
+		return addr, data
+
+	*/
+
+	addr = new(net.UDPAddr)
+	addr.IP = make([]byte, 16)
+	addr.IP[10] = 255
+	addr.IP[11] = 255
+	copy(addr.IP[len(addr.IP)-4:], buf[:4])
+	addr.Port = int(binary.BigEndian.Uint16(buf[4:6]))
+
+	data = make([]byte, len(buf)-6)
+	copy(data, buf[6:])
+
+	return addr, data
+
 }
