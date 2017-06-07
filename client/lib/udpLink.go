@@ -2,6 +2,7 @@ package client
 
 import (
 	"net"
+	"time"
 
 	"encoding/binary"
 
@@ -97,8 +98,7 @@ func (l *UDPLink) Start() {
 
 	l.pc = pc
 
-	pc.WriteTo([]byte("PHANTOM"), l.hostAddr)
-
+	go l.keepAlive()
 	go l.handleConnection()
 
 }
@@ -111,6 +111,25 @@ func (l *UDPLink) Stop() {
 	}
 
 	l.pc.Close()
+
+}
+
+func (l *UDPLink) keepAlive() {
+
+	for {
+
+		_, err := l.pc.WriteTo([]byte("PHANTOM"), l.hostAddr)
+
+		if err != nil {
+			l.parent.logger.WithFields(logrus.Fields{
+				"scope": "udpLink/keepAlive",
+			}).Warn(err)
+			break
+		}
+
+		time.Sleep(10 * time.Second)
+
+	}
 
 }
 
