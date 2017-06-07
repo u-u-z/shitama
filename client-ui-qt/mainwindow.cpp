@@ -171,7 +171,7 @@ void MainWindow::stopClient() {
 
     if(this->clientProcess != nullptr) {
 
-        this->clientProcess->close();
+        this->clientProcess->kill();
         this->clientProcess = nullptr;
 
     }
