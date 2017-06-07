@@ -12,6 +12,10 @@ function build_shard() {
     go build -o ./build/shard/shard ./shard/
 }
 
+function build_client() {
+    go build -o ./build/client/client ./client/
+}
+
 function build_all() {
     build_holder
     build_shard
@@ -26,7 +30,12 @@ function clean_shard() {
     rm -r ./build/shard/
 }
 
+function clean_client() {
+    rm -r ./build/client/
+}
+
 function clean_all() {
     clean_holder
     clean_shard
+    clean_client
 }
