@@ -104,6 +104,8 @@ func (l *UDPLink) handleHostConnection() {
 			break
 		}
 
+		l.active = time.Now()
+
 		if bytes.Equal(buf[:n], []byte("PHANTOM")) {
 			if l.hostAddr == nil {
 				l.hostAddr = addr
