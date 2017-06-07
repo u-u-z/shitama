@@ -3,7 +3,7 @@
 set GOOS=windows
 set GOARCH=386
 
-go build -o .\build\client\client.exe .\client\
+go build -ldflags "-s -w" -o .\build\client\client.exe .\client\
 
 cd client-ui-qt
 qmake
