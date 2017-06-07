@@ -88,6 +88,10 @@ func (c *Client) GetStatus() map[string]interface{} {
 
 func (c *Client) UpdateShards() []ShardInfo {
 
+	if !c.connected {
+		return make([]ShardInfo, 0)
+	}
+
 	shards := c.Tunnel.zGetShards()
 
 	if shards == nil {
@@ -105,6 +109,10 @@ func (c *Client) UpdateShards() []ShardInfo {
 }
 
 func (c *Client) RequestRelay(shardAddr string, transport string) (hostAddr string, guestAddr string) {
+
+	if !c.connected {
+		return "ERROR_UNCONNECTED", "ERROR_UNCONNECTED"
+	}
 
 	hostAddr, guestAddr = c.Tunnel.zShardRelay(shardAddr, transport)
 
