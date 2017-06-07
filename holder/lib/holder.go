@@ -32,10 +32,6 @@ func NewHolder() *Holder {
 
 	h.Tunnel.OnRequestReceived.SubscribeAsync("/api/shards/init", func(conn *kcp.UDPSession, session *yamux.Session, stream *yamux.Stream, decoder *gob.Decoder, encoder *gob.Encoder) {
 
-		h.logger.WithFields(logrus.Fields{
-			"scope": "holder/handleRequestReceived",
-		}).Info("handle /api/shards/init")
-
 		var echoPort int
 		decoder.Decode(&echoPort)
 
@@ -51,10 +47,6 @@ func NewHolder() *Holder {
 
 	h.Tunnel.OnRequestReceived.SubscribeAsync("/api/clients/init", func(conn *kcp.UDPSession, session *yamux.Session, stream *yamux.Stream, decoder *gob.Decoder, encoder *gob.Encoder) {
 
-		h.logger.WithFields(logrus.Fields{
-			"scope": "holder/handleRequestReceived",
-		}).Info("handle /api/clients/init")
-
 		addr := conn.RemoteAddr().String()
 
 		h.clients = append(h.clients, NewClientInfo(addr, conn, session))
@@ -65,19 +57,11 @@ func NewHolder() *Holder {
 
 	h.Tunnel.OnRequestReceived.SubscribeAsync("/api/shards", func(conn *kcp.UDPSession, session *yamux.Session, stream *yamux.Stream, decoder *gob.Decoder, encoder *gob.Encoder) {
 
-		h.logger.WithFields(logrus.Fields{
-			"scope": "holder/handleRequestReceived",
-		}).Info("handle /api/shards")
-
 		encoder.Encode(h.shards)
 
 	}, false)
 
 	h.Tunnel.OnRequestReceived.SubscribeAsync("/api/shards/relay", func(conn *kcp.UDPSession, session *yamux.Session, stream *yamux.Stream, decoder *gob.Decoder, encoder *gob.Encoder) {
-
-		h.logger.WithFields(logrus.Fields{
-			"scope": "holder/handleRequestReceived",
-		}).Info("handle /api/shards/relay")
 
 		clientAddr := conn.RemoteAddr().String()
 
