@@ -14,5 +14,5 @@ cd ..
 mkdir .\dist\Shitama\
 xcopy /y .\build\client\client.exe .\dist\Shitama\
 xcopy /y .\build\client-ui-qt\Shitama.exe .\dist\Shitama\
-windeployqt .\dist\Shitama\Shitama.exe
+windeployqt --no-system-d3d-compiler --no-angle --no-opengl-sw .\dist\Shitama\Shitama.exe
 7z a .\dist\Shitama.7z .\dist\Shitama\
