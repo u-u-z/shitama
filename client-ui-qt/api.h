@@ -3,16 +3,15 @@
 
 #include <QString>
 #include <QtNetwork/QNetworkAccessManager>
-#include <QJsonObject>
-#include <QJsonArray>
+#include <QtNetwork/QNetworkReply>
 
 class API
 {
 public:
     API();
-    QJsonObject GetStatus();
-    QJsonArray GetShards();
-    QJsonObject ShardRelay(QString shardAddr, QString transport);
+    QNetworkReply* GetStatus();
+    QNetworkReply* GetShards();
+    QNetworkReply* ShardRelay(QString shardAddr, QString transport);
 private:
     QNetworkAccessManager* qnam;
 };

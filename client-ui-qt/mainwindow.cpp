@@ -5,6 +5,8 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
 #include <QClipboard>
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -71,16 +73,20 @@ void MainWindow::startClient() {
 
 void MainWindow::updateStatus() {
 
-    auto status = api->GetStatus();
+    QNetworkReply* reply = api->GetStatus();
+    connect(reply, &QNetworkReply::finished, [=]() {
 
-    auto connected = status["connected"].toBool();
+        auto status = QJsonDocument::fromJson(reply->readAll()).object();
+        auto connected = status["connected"].toBool();
 
-    if(connected) {
-        ui->statusBar->showMessage(tr("已连接。"));
-    }
-    else {
-        ui->statusBar->showMessage(tr("已断开。"));
-    }
+        if(connected) {
+            ui->statusBar->showMessage(tr("已连接。"));
+        }
+        else {
+            ui->statusBar->showMessage(tr("已断开。"));
+        }
+
+    });
 
 }
 
@@ -88,19 +94,24 @@ void MainWindow::updateShards() {
 
     ui->updateShards->setEnabled(false);
 
-    auto shards = api->GetShards();
+    QNetworkReply* reply = api->GetShards();
+    connect(reply, &QNetworkReply::finished, [=]() {
 
-    ui->shards->clear();
+        auto shards = QJsonDocument::fromJson(reply->readAll()).array();
 
-    for(int i = 0; i < shards.size(); i++) {
+        ui->shards->clear();
 
-        auto shard = shards.at(i).toObject();
+        for(int i = 0; i < shards.size(); i++) {
 
-        ui->shards->addItem(QString("%1 - %2ms").arg(shard["ip"].toString()).arg(shard["rtt"].toDouble(), 0, 'f', 2), QVariant(shard["addr"].toString()));
+            auto shard = shards.at(i).toObject();
 
-    }
+            ui->shards->addItem(QString("%1 - %2ms").arg(shard["ip"].toString()).arg(shard["rtt"].toDouble(), 0, 'f', 2), QVariant(shard["addr"].toString()));
 
-    ui->updateShards->setEnabled(true);
+        }
+
+        ui->updateShards->setEnabled(true);
+
+    });
 
 }
 
@@ -111,11 +122,17 @@ void MainWindow::shardRelay() {
     auto shardAddr = ui->shards->currentData().toString();
     auto transport = ui->transports->currentText().toLower();
 
-    auto relayInfo = api->ShardRelay(shardAddr, transport);
+    QNetworkReply* reply = api->ShardRelay(shardAddr, transport);
+    connect(reply, &QNetworkReply::finished, [=]() {
 
-    ui->address->setText(relayInfo["guestAddr"].toString());
+        auto relayInfo = QJsonDocument::fromJson(reply->readAll()).object();
 
-    ui->shardRelay->setEnabled(true);
+        ui->address->setText(relayInfo["guestAddr"].toString());
+
+        ui->shardRelay->setEnabled(true);
+
+    });
+
 
 }
 
