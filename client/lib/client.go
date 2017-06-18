@@ -46,6 +46,9 @@ func NewClient() *Client {
 	c.Tunnel = NewTunnel(c)
 	c.API = NewAPI(c)
 
+	c.shards = make([]ShardInfo, 0)
+	c.link = nil
+
 	c.Tunnel.OnConnected.SubscribeAsync("", func() {
 
 		c.logger.WithFields(logrus.Fields{
