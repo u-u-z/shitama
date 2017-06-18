@@ -1,6 +1,7 @@
 package client
 
 import (
+	"bytes"
 	"net"
 	"time"
 
@@ -10,16 +11,16 @@ import (
 )
 
 type UDPLinkDummy struct {
-	parent    *UDPLink
-	guestAddr *net.UDPAddr
-	pc        net.PacketConn
+	parent   *UDPLink
+	peerAddr *net.UDPAddr
+	pc       net.PacketConn
 }
 
-func NewUDPLinkDummy(parent *UDPLink, guestAddr *net.UDPAddr) *UDPLinkDummy {
+func NewUDPLinkDummy(parent *UDPLink, peerAddr *net.UDPAddr) *UDPLinkDummy {
 
 	d := new(UDPLinkDummy)
 	d.parent = parent
-	d.guestAddr = guestAddr
+	d.peerAddr = peerAddr
 
 	return d
 
@@ -27,7 +28,7 @@ func NewUDPLinkDummy(parent *UDPLink, guestAddr *net.UDPAddr) *UDPLinkDummy {
 
 func (d *UDPLinkDummy) Start() {
 
-	pc, err := net.ListenPacket("udp4", "0.0.0.0:0")
+	pc, err := net.ListenPacket("udp4", "127.0.0.1:0")
 
 	if err != nil {
 		d.parent.parent.logger.WithFields(logrus.Fields{
@@ -60,7 +61,73 @@ func (d *UDPLinkDummy) handleConnection() {
 			break
 		}
 
-		d.parent.pc.WriteTo(d.parent.packData(d.guestAddr, buf[:n]), d.parent.hostAddr)
+		if buf[0] == 0x8 {
+
+			len := int(binary.LittleEndian.Uint32(buf[1:5]))
+
+			for i := 0; i < len; i++ {
+
+				pre := d.parent.sockAddrToUDPAddr(buf[5+i*16:])
+				dummy := d.parent.findDummyByAddr(pre)
+
+				if dummy != nil {
+
+					copy(buf[5+i*16:], d.parent.udpAddrToSockAddr(dummy.peerAddr))
+
+					/*
+						post := d.parent.sockAddrToUDPAddr(buf[5+i*16:])
+
+						d.parent.parent.logger.WithFields(logrus.Fields{
+							"scope": "udpLink/dummy/handleConnection",
+							"pre":   pre,
+							"post":  post,
+						}).Info("rewrite 0x8 packet")
+					*/
+
+				} else {
+
+					d.parent.parent.logger.WithFields(logrus.Fields{
+						"scope": "udpLink/dummy/handleConnection",
+						"pre":   pre,
+					}).Warn("rewrite 0x8 packet mismatch")
+
+				}
+
+			}
+
+		}
+
+		if buf[0] == 0x2 {
+
+			pre := d.parent.sockAddrToUDPAddr(buf[1:])
+			dummy := d.parent.findDummyByAddr(pre)
+
+			if dummy != nil {
+
+				copy(buf[1:], d.parent.udpAddrToSockAddr(dummy.peerAddr))
+
+				/*
+					post := d.parent.sockAddrToUDPAddr(buf[1:])
+
+					d.parent.parent.logger.WithFields(logrus.Fields{
+						"scope": "udpLink/dummy/handleConnection",
+						"pre":   pre,
+						"post":  post,
+					}).Info("rewrite 0x2 packet")
+				*/
+
+			} else {
+
+				d.parent.parent.logger.WithFields(logrus.Fields{
+					"scope": "udpLink/dummy/handleConnection",
+					"pre":   pre,
+				}).Warn("rewrite 0x2 packet mismatch")
+
+			}
+
+		}
+
+		d.parent.pc.WriteTo(d.parent.packData(d.peerAddr, buf[:n]), d.parent.hostAddr)
 
 	}
 
@@ -148,14 +215,50 @@ func (l *UDPLink) handleConnection() {
 			break
 		}
 
-		guestAddr, data := l.unpackData(buf[:n])
-		guestKey := guestAddr.String()
+		peerAddr, data := l.unpackData(buf[:n])
+		key := peerAddr.String()
 
-		if _, ok := l.dummies[guestKey]; !ok {
-			l.newDummy(guestAddr)
+		if _, ok := l.dummies[key]; !ok {
+			l.newDummy(peerAddr)
 		}
 
-		l.dummies[guestKey].pc.WriteTo(data, l.GameAddr)
+		if data[0] == 0x1 {
+
+			if bytes.Compare(data[1:17], data[17:33]) != 0 {
+
+				pre := l.sockAddrToUDPAddr(data[17:25])
+				dummy := l.dummies[pre.String()]
+
+				if dummy != nil {
+
+					localAddr := dummy.pc.LocalAddr().(*net.UDPAddr)
+
+					copy(data[17:], l.udpAddrToSockAddr(localAddr))
+
+					/*
+						post := l.sockAddrToUDPAddr(data[17:25])
+
+						l.parent.logger.WithFields(logrus.Fields{
+							"scope": "udpLink/handleConnection",
+							"pre":   pre,
+							"post":  post,
+						}).Info("rewrite 0x1 packet")
+					*/
+
+				} else {
+
+					l.parent.logger.WithFields(logrus.Fields{
+						"scope": "udpLink/handleConnection",
+						"pre":   pre,
+					}).Warn("rewrite 0x1 packet mismatch")
+
+				}
+
+			}
+
+		}
+
+		l.dummies[key].pc.WriteTo(data, l.GameAddr)
 
 	}
 
@@ -163,9 +266,52 @@ func (l *UDPLink) handleConnection() {
 
 func (l *UDPLink) newDummy(peerAddr *net.UDPAddr) *UDPLinkDummy {
 	p := NewUDPLinkDummy(l, peerAddr)
-	l.dummies[peerAddr.String()] = p
+	key := peerAddr.String()
+	l.dummies[key] = p
 	p.Start()
+	l.parent.logger.WithFields(logrus.Fields{
+		"scope": "udpLink/newDummy",
+		"key":   key,
+	}).Info("new dummy started")
 	return p
+}
+
+// Need optimization.
+func (l *UDPLink) findDummyByAddr(addr net.Addr) *UDPLinkDummy {
+
+	for _, dummy := range l.dummies {
+		if dummy.pc.LocalAddr().String() == addr.String() {
+			return dummy
+		}
+	}
+
+	return nil
+
+}
+
+func (l *UDPLink) udpAddrToSockAddr(addr *net.UDPAddr) []byte {
+
+	buf := make([]byte, 8)
+
+	binary.BigEndian.PutUint16(buf[:2], 0x200)
+	binary.BigEndian.PutUint16(buf[2:4], uint16(addr.Port))
+	copy(buf[4:8], addr.IP[len(addr.IP)-4:])
+
+	return buf
+
+}
+
+func (l *UDPLink) sockAddrToUDPAddr(buf []byte) *net.UDPAddr {
+
+	addr := new(net.UDPAddr)
+	addr.IP = make([]byte, 16)
+	addr.IP[10] = 255
+	addr.IP[11] = 255
+	copy(addr.IP[len(addr.IP)-4:], buf[4:8])
+	addr.Port = int(binary.BigEndian.Uint16(buf[2:4]))
+
+	return addr
+
 }
 
 func (l *UDPLink) packData(addr *net.UDPAddr, data []byte) []byte {
