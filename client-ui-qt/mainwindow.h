@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QSystemTrayIcon>
 #include <QProcess>
 #include <QTimer>
 #include <QSettings>
@@ -22,6 +23,7 @@ public:
 
 private:
     Ui::MainWindow* ui;
+    QSystemTrayIcon* tray;
     QSettings* settings;
     API* api;
     int statusWatcher;

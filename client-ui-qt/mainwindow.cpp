@@ -13,6 +13,7 @@
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
+    tray(new QSystemTrayIcon()),
     settings(new QSettings()),
     api(new API()),
     clientProcess(nullptr),
@@ -20,23 +21,27 @@ MainWindow::MainWindow(QWidget *parent) :
     connected(false)
 {
 
-    ui->setupUi(this);
+    this->ui->setupUi(this);
+
+    this->tray->setToolTip(this->windowTitle());
+    this->tray->setIcon(QIcon(":/shitama.ico"));
+    this->tray->show();
 
     this->setWindowFlags(this->windowFlags() & ~Qt::WindowMinMaxButtonsHint);
 
-    connect(ui->actionClearConfig, &QAction::triggered, [=]() {
+    connect(this->ui->actionClearConfig, &QAction::triggered, [=]() {
         this->settings->clear();
-        QMessageBox::information(nullptr, this->windowTitle(), tr("应用配置已清空。"));
+        this->tray->showMessage(this->windowTitle(), tr("应用配置已清空。"), QSystemTrayIcon::Information, 1000);
     });
-    connect(ui->actionExit, &QAction::triggered, this, &MainWindow::close);
-    connect(ui->actionCheckUpdates, &QAction::triggered, [=]() {
+    connect(this->ui->actionExit, &QAction::triggered, this, &MainWindow::close);
+    connect(this->ui->actionCheckUpdates, &QAction::triggered, [=]() {
         QDesktopServices::openUrl(QUrl("https://github.com/evshiron/shitama/releases"));
     });
 
-    connect(ui->updateShards, &QPushButton::clicked, this, &MainWindow::updateShards);
-    connect(ui->shardRelay, &QPushButton::clicked, this, &MainWindow::shardRelay);
-    connect(ui->copyAddress, &QPushButton::clicked, this, &MainWindow::copyAddress);
-    connect(ui->launch, &QPushButton::clicked, this, &MainWindow::launch);
+    connect(this->ui->updateShards, &QPushButton::clicked, this, &MainWindow::updateShards);
+    connect(this->ui->shardRelay, &QPushButton::clicked, this, &MainWindow::shardRelay);
+    connect(this->ui->copyAddress, &QPushButton::clicked, this, &MainWindow::copyAddress);
+    connect(this->ui->launch, &QPushButton::clicked, this, &MainWindow::launch);
 
     this->startClient();
 
@@ -56,31 +61,35 @@ void MainWindow::setConnected(bool connected, bool forceUpdate) {
 
     if(this->connected != connected || forceUpdate) {
         if(connected) {
-            ui->shards->setEnabled(true);
-            ui->updateShards->setEnabled(true);
-            ui->address->setEnabled(true);
-            ui->shardRelay->setEnabled(true);
-            ui->copyAddress->setEnabled(true);
+
+            this->ui->shards->setEnabled(true);
+            this->ui->updateShards->setEnabled(true);
+            this->ui->address->setEnabled(true);
+            this->ui->shardRelay->setEnabled(true);
+            this->ui->copyAddress->setEnabled(true);
+
+            if(!forceUpdate) {
+                this->tray->showMessage(this->windowTitle(), tr("服务器已连接。"), QSystemTrayIcon::Information, 1000);
+            }
 
             this->updateShards();
         }
         else {
-            ui->shards->setDisabled(true);
-            ui->address->setDisabled(true);
-            ui->updateShards->setDisabled(true);
-            ui->shardRelay->setDisabled(true);
-            ui->copyAddress->setDisabled(true);
+
+            this->ui->shards->setDisabled(true);
+            this->ui->address->setDisabled(true);
+            this->ui->updateShards->setDisabled(true);
+            this->ui->shardRelay->setDisabled(true);
+            this->ui->copyAddress->setDisabled(true);
+
+            if(!forceUpdate) {
+                this->tray->showMessage(this->windowTitle(), tr("服务器已断开。"), QSystemTrayIcon::Information, 1000);
+            }
+
         }
     }
 
     this->connected = connected;
-
-    if(this->connected) {
-        ui->statusBar->showMessage(tr("已连接。"));
-    }
-    else {
-        ui->statusBar->showMessage(tr("已断开。"));
-    }
 
 }
 
@@ -95,9 +104,7 @@ void MainWindow::startClient() {
     QFileInfo file(path);
 
     if(!file.exists() || !file.isFile()) {
-
-        QMessageBox::warning(nullptr, this->windowTitle(), tr("文件「%1」缺失。").arg(path));
-
+        this->tray->showMessage(this->windowTitle(), tr("文件「%1」缺失。").arg(path), QSystemTrayIcon::Warning, 1000);
     }
     else {
 
@@ -125,26 +132,26 @@ void MainWindow::updateStatus() {
 
 void MainWindow::updateShards() {
 
-    ui->shards->setDisabled(true);
-    ui->updateShards->setDisabled(true);
+    this->ui->shards->setDisabled(true);
+    this->ui->updateShards->setDisabled(true);
 
     QNetworkReply* reply = api->GetShards();
     connect(reply, &QNetworkReply::finished, [=]() {
 
         auto shards = QJsonDocument::fromJson(reply->readAll()).array();
 
-        ui->shards->clear();
+        this->ui->shards->clear();
 
         for(int i = 0; i < shards.size(); i++) {
 
             auto shard = shards.at(i).toObject();
 
-            ui->shards->addItem(QString("%1 - %2ms").arg(shard["ip"].toString()).arg(shard["rtt"].toDouble(), 0, 'f', 2), QVariant(shard["addr"].toString()));
+            this->ui->shards->addItem(QString("%1 - %2ms").arg(shard["ip"].toString()).arg(shard["rtt"].toDouble(), 0, 'f', 2), QVariant(shard["addr"].toString()));
 
         }
 
-        ui->shards->setEnabled(true);
-        ui->updateShards->setEnabled(true);
+        this->ui->shards->setEnabled(true);
+        this->ui->updateShards->setEnabled(true);
 
     });
 
@@ -152,21 +159,21 @@ void MainWindow::updateShards() {
 
 void MainWindow::shardRelay() {
 
-    ui->address->setDisabled(true);
-    ui->shardRelay->setDisabled(true);
+    this->ui->address->setDisabled(true);
+    this->ui->shardRelay->setDisabled(true);
 
-    auto shardAddr = ui->shards->currentData().toString();
-    auto transport = ui->transports->currentText().toLower();
+    auto shardAddr = this->ui->shards->currentData().toString();
+    auto transport = this->ui->transports->currentText().toLower();
 
     QNetworkReply* reply = api->ShardRelay(shardAddr, transport);
     connect(reply, &QNetworkReply::finished, [=]() {
 
         auto relayInfo = QJsonDocument::fromJson(reply->readAll()).object();
 
-        ui->address->setText(relayInfo["guestAddr"].toString());
+        this->ui->address->setText(relayInfo["guestAddr"].toString());
 
-        ui->address->setEnabled(true);
-        ui->shardRelay->setEnabled(true);
+        this->ui->address->setEnabled(true);
+        this->ui->shardRelay->setEnabled(true);
 
     });
 
@@ -174,23 +181,23 @@ void MainWindow::shardRelay() {
 
 void MainWindow::copyAddress() {
 
-    ui->copyAddress->setDisabled(true);
+    this->ui->copyAddress->setDisabled(true);
 
     QClipboard* clipboard = QApplication::clipboard();
 
-    QString address = ui->address->text().trimmed();
+    QString address = this->ui->address->text().trimmed();
 
     if(address == "") {
-        QMessageBox::information(nullptr, this->windowTitle(), tr("请先点击「中转」按钮获取地址。"));
+        this->tray->showMessage(this->windowTitle(), tr("请先点击「中转」按钮获取地址。"), QSystemTrayIcon::Warning, 1000);
     }
     else {
 
         clipboard->setText(address);
-        QMessageBox::information(nullptr, this->windowTitle(), tr("「%1」已经复制到剪贴板。").arg(address));
+        this->tray->showMessage(this->windowTitle(), tr("「%1」已经复制到剪贴板。").arg(address), QSystemTrayIcon::Information, 1000);
 
     }
 
-    ui->copyAddress->setEnabled(true);
+    this->ui->copyAddress->setEnabled(true);
 
 }
 
@@ -237,6 +244,7 @@ MainWindow::~MainWindow()
     this->stopClient();
 
     delete this->ui;
+    delete this->tray;
     delete this->settings;
     delete this->api;
 

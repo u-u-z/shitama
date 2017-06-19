@@ -28,6 +28,10 @@
   <property name="windowTitle">
    <string>Shitama</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="shitama.qrc">
+    <normaloff>:/shitama.png</normaloff>:/shitama.png</iconset>
+  </property>
   <widget class="QWidget" name="centralWidget">
    <widget class="QLabel" name="label">
     <property name="geometry">
@@ -178,11 +182,6 @@
     </property>
    </widget>
   </widget>
-  <widget class="QStatusBar" name="statusBar">
-   <property name="sizeGripEnabled">
-    <bool>false</bool>
-   </property>
-  </widget>
   <widget class="QMenuBar" name="menuBar">
    <property name="geometry">
     <rect>
@@ -203,7 +202,7 @@
     <property name="title">
      <string>视图</string>
     </property>
-    <addaction name="actionQuality"/>
+    <addaction name="actionConnection"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -225,12 +224,12 @@
     <string>退出</string>
    </property>
   </action>
-  <action name="actionQuality">
+  <action name="actionConnection">
    <property name="enabled">
     <bool>false</bool>
    </property>
    <property name="text">
-    <string>连接质量</string>
+    <string>连接信息</string>
    </property>
   </action>
   <action name="actionAbout">
@@ -250,6 +249,8 @@
   </action>
  </widget>
  <layoutdefault spacing="6" margin="11"/>
- <resources/>
+ <resources>
+  <include location="shitama.qrc"/>
+ </resources>
  <connections/>
 </ui>

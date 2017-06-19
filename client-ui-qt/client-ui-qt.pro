@@ -35,4 +35,13 @@ HEADERS += \
 FORMS += \
         mainwindow.ui
 
+RC_FILE = shitama.rc
+
 DESTDIR = ../build/client-ui-qt/
+
+DISTFILES += \
+    shitama.rc \
+    shitama.ico
+
+RESOURCES += \
+    shitama.qrc
