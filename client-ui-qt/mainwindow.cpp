@@ -8,6 +8,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QClipboard>
+#include <QDesktopServices>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -15,31 +16,71 @@ MainWindow::MainWindow(QWidget *parent) :
     settings(new QSettings()),
     api(new API()),
     clientProcess(nullptr),
-    childProcess(nullptr)
+    childProcess(nullptr),
+    connected(false)
 {
 
     ui->setupUi(this);
 
     this->setWindowFlags(this->windowFlags() & ~Qt::WindowMinMaxButtonsHint);
 
+    connect(ui->actionClearConfig, &QAction::triggered, [=]() {
+        this->settings->clear();
+        QMessageBox::information(nullptr, this->windowTitle(), tr("应用配置已清空。"));
+    });
+    connect(ui->actionExit, &QAction::triggered, this, &MainWindow::close);
+    connect(ui->actionCheckUpdates, &QAction::triggered, [=]() {
+        QDesktopServices::openUrl(QUrl("https://github.com/evshiron/shitama/releases"));
+    });
+
     connect(ui->updateShards, &QPushButton::clicked, this, &MainWindow::updateShards);
     connect(ui->shardRelay, &QPushButton::clicked, this, &MainWindow::shardRelay);
     connect(ui->copyAddress, &QPushButton::clicked, this, &MainWindow::copyAddress);
-    connect(ui->launch, &QPushButton::clicked, this, &MainWindow::launchChild);
+    connect(ui->launch, &QPushButton::clicked, this, &MainWindow::launch);
 
     this->startClient();
 
-    ui->statusBar->showMessage(tr("初始化。"));
-
     this->statusWatcher = this->startTimer(1000);
 
-    this->updateShards();
+    this->setConnected(false, true);
 
 }
 
 void MainWindow::timerEvent(QTimerEvent* event) {
 
     this->updateStatus();
+
+}
+
+void MainWindow::setConnected(bool connected, bool forceUpdate) {
+
+    if(this->connected != connected || forceUpdate) {
+        if(connected) {
+            ui->shards->setEnabled(true);
+            ui->updateShards->setEnabled(true);
+            ui->address->setEnabled(true);
+            ui->shardRelay->setEnabled(true);
+            ui->copyAddress->setEnabled(true);
+
+            this->updateShards();
+        }
+        else {
+            ui->shards->setDisabled(true);
+            ui->address->setDisabled(true);
+            ui->updateShards->setDisabled(true);
+            ui->shardRelay->setDisabled(true);
+            ui->copyAddress->setDisabled(true);
+        }
+    }
+
+    this->connected = connected;
+
+    if(this->connected) {
+        ui->statusBar->showMessage(tr("已连接。"));
+    }
+    else {
+        ui->statusBar->showMessage(tr("已断开。"));
+    }
 
 }
 
@@ -55,10 +96,7 @@ void MainWindow::startClient() {
 
     if(!file.exists() || !file.isFile()) {
 
-        QMessageBox msgBox;
-        msgBox.setWindowTitle(tr("Shitama"));
-        msgBox.setText(tr("文件「%1」缺失。").arg(path));
-        msgBox.exec();
+        QMessageBox::warning(nullptr, this->windowTitle(), tr("文件「%1」缺失。").arg(path));
 
     }
     else {
@@ -79,12 +117,7 @@ void MainWindow::updateStatus() {
         auto status = QJsonDocument::fromJson(reply->readAll()).object();
         auto connected = status["connected"].toBool();
 
-        if(connected) {
-            ui->statusBar->showMessage(tr("已连接。"));
-        }
-        else {
-            ui->statusBar->showMessage(tr("已断开。"));
-        }
+        this->setConnected(connected);
 
     });
 
@@ -92,7 +125,8 @@ void MainWindow::updateStatus() {
 
 void MainWindow::updateShards() {
 
-    ui->updateShards->setEnabled(false);
+    ui->shards->setDisabled(true);
+    ui->updateShards->setDisabled(true);
 
     QNetworkReply* reply = api->GetShards();
     connect(reply, &QNetworkReply::finished, [=]() {
@@ -109,6 +143,7 @@ void MainWindow::updateShards() {
 
         }
 
+        ui->shards->setEnabled(true);
         ui->updateShards->setEnabled(true);
 
     });
@@ -117,7 +152,8 @@ void MainWindow::updateShards() {
 
 void MainWindow::shardRelay() {
 
-    ui->shardRelay->setEnabled(false);
+    ui->address->setDisabled(true);
+    ui->shardRelay->setDisabled(true);
 
     auto shardAddr = ui->shards->currentData().toString();
     auto transport = ui->transports->currentText().toLower();
@@ -129,37 +165,28 @@ void MainWindow::shardRelay() {
 
         ui->address->setText(relayInfo["guestAddr"].toString());
 
+        ui->address->setEnabled(true);
         ui->shardRelay->setEnabled(true);
 
     });
-
 
 }
 
 void MainWindow::copyAddress() {
 
-    ui->copyAddress->setEnabled(false);
+    ui->copyAddress->setDisabled(true);
 
     QClipboard* clipboard = QApplication::clipboard();
 
     QString address = ui->address->text().trimmed();
 
     if(address == "") {
-
-        QMessageBox msgBox;
-        msgBox.setWindowTitle(tr("Shitama"));
-        msgBox.setText(tr("请先点击「中转」按钮获取地址。"));
-        msgBox.exec();
-
+        QMessageBox::information(nullptr, this->windowTitle(), tr("请先点击「中转」按钮获取地址。"));
     }
     else {
 
         clipboard->setText(address);
-
-        QMessageBox msgBox;
-        msgBox.setWindowTitle(tr("Shitama"));
-        msgBox.setText(tr("「%1」已经复制到剪贴板。").arg(address));
-        msgBox.exec();
+        QMessageBox::information(nullptr, this->windowTitle(), tr("「%1」已经复制到剪贴板。").arg(address));
 
     }
 
@@ -167,20 +194,26 @@ void MainWindow::copyAddress() {
 
 }
 
-void MainWindow::launchChild() {
+void MainWindow::launch() {
 
     auto path = this->settings->value("launch/path", QVariant("")).toString();
 
     if(path == "") {
 
-        path = QFileDialog::getOpenFileName(this, tr("Shitama"));
+        path = QFileDialog::getOpenFileName(nullptr, this->windowTitle());
         this->settings->setValue("launch/path", QVariant(path));
 
     }
 
+    this->ui->launch->setDisabled(true);
+
     this->childProcess = new QProcess(this);
     this->childProcess->start(path);
     this->childProcess->waitForStarted();
+
+    connect(this->childProcess, static_cast<void (QProcess::*) (int, QProcess::ExitStatus)>(&QProcess::finished), [=](int exitCode, QProcess::ExitStatus exitStatus) {
+        this->ui->launch->setEnabled(true);
+    });
 
 }
 

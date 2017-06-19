@@ -10,19 +10,19 @@
     <x>0</x>
     <y>0</y>
     <width>200</width>
-    <height>280</height>
+    <height>300</height>
    </rect>
   </property>
   <property name="minimumSize">
    <size>
     <width>200</width>
-    <height>280</height>
+    <height>300</height>
    </size>
   </property>
   <property name="maximumSize">
    <size>
     <width>200</width>
-    <height>280</height>
+    <height>300</height>
    </size>
   </property>
   <property name="windowTitle">
@@ -183,9 +183,69 @@
     <bool>false</bool>
    </property>
   </widget>
+  <widget class="QMenuBar" name="menuBar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>200</width>
+     <height>23</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menuMain">
+    <property name="title">
+     <string>菜单</string>
+    </property>
+    <addaction name="actionClearConfig"/>
+    <addaction name="actionExit"/>
+   </widget>
+   <widget class="QMenu" name="menuView">
+    <property name="title">
+     <string>视图</string>
+    </property>
+    <addaction name="actionQuality"/>
+   </widget>
+   <widget class="QMenu" name="menuHelp">
+    <property name="title">
+     <string>帮助</string>
+    </property>
+    <addaction name="actionCheckUpdates"/>
+   </widget>
+   <addaction name="menuMain"/>
+   <addaction name="menuView"/>
+   <addaction name="menuHelp"/>
+  </widget>
   <action name="actionQuit">
    <property name="text">
     <string>退出</string>
+   </property>
+  </action>
+  <action name="actionExit">
+   <property name="text">
+    <string>退出</string>
+   </property>
+  </action>
+  <action name="actionQuality">
+   <property name="enabled">
+    <bool>false</bool>
+   </property>
+   <property name="text">
+    <string>连接质量</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>关于</string>
+   </property>
+  </action>
+  <action name="actionClearConfig">
+   <property name="text">
+    <string>清空应用配置</string>
+   </property>
+  </action>
+  <action name="actionCheckUpdates">
+   <property name="text">
+    <string>检查应用更新</string>
    </property>
   </action>
  </widget>

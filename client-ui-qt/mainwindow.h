@@ -28,14 +28,18 @@ private:
     QProcess* clientProcess;
     QProcess* childProcess;
 
+    bool connected;
+
     virtual void timerEvent(QTimerEvent* event);
+
+    void setConnected(bool connected, bool forceUpdate = false);
 
     void startClient();
     void updateStatus();
     void updateShards();
     void shardRelay();
     void copyAddress();
-    void launchChild();
+    void launch();
     void stopClient();
 };
 
