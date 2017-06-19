@@ -209,6 +209,7 @@
      <string>帮助</string>
     </property>
     <addaction name="actionCheckUpdates"/>
+    <addaction name="actionAbout"/>
    </widget>
    <addaction name="menuMain"/>
    <addaction name="menuView"/>
@@ -232,11 +233,6 @@
     <string>连接信息</string>
    </property>
   </action>
-  <action name="actionAbout">
-   <property name="text">
-    <string>关于</string>
-   </property>
-  </action>
   <action name="actionClearConfig">
    <property name="text">
     <string>清空应用配置</string>
@@ -245,6 +241,11 @@
   <action name="actionCheckUpdates">
    <property name="text">
     <string>检查应用更新</string>
+   </property>
+  </action>
+  <action name="actionAbout">
+   <property name="text">
+    <string>关于</string>
    </property>
   </action>
  </widget>

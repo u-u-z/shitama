@@ -11,12 +11,12 @@ install:
   - set PATH=%PATH%;%QTDIR%\bin;C:\MinGW\bin
 
 build_script:
-  - cmd: .\scripts\build_client_dist.bat
+  - cmd: .\scripts\build_client_dist.bat %APPVEYOR_BUILD_NUMBER% %APPVEYOR_REPO_COMMIT%
 
 deploy:
   provider: GitHub
-  release: Shitama-alpha
-  description: 'Shitama alpha via AppVeyor'
+  release: 'r$(APPVEYOR_BUILD_NUMBER)'
+  description: 'Shitama r$(APPVEYOR_BUILD_NUMBER) for $(APPVEYOR_REPO_COMMIT)'
   draft: true
   prerelease: true
   auth_token:

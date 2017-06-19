@@ -37,6 +37,10 @@ MainWindow::MainWindow(QWidget *parent) :
     connect(this->ui->actionCheckUpdates, &QAction::triggered, [=]() {
         QDesktopServices::openUrl(QUrl("https://github.com/evshiron/shitama/releases"));
     });
+    connect(this->ui->actionAbout, &QAction::triggered, [=]() {
+        QMessageBox::about(nullptr, this->windowTitle(), tr("Shitama r%1\r\n"
+                                                            "Commit: %2").arg(SHITAMA_BUILD).arg(SHITAMA_COMMIT));
+    });
 
     connect(this->ui->updateShards, &QPushButton::clicked, this, &MainWindow::updateShards);
     connect(this->ui->shardRelay, &QPushButton::clicked, this, &MainWindow::shardRelay);
