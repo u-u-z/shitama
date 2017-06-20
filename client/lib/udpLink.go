@@ -16,6 +16,7 @@ type UDPLinkDummy struct {
 	pc        net.PacketConn
 	delay     int64
 	delayBase time.Time
+	profile   string
 	active    time.Time
 }
 
@@ -26,6 +27,7 @@ func NewUDPLinkDummy(parent *UDPLink, peerAddr *net.UDPAddr) *UDPLinkDummy {
 	d.peerAddr = peerAddr
 	d.delay = 65535
 	d.delayBase = time.Now()
+	d.profile = "key"
 	d.active = time.Now()
 
 	return d
@@ -49,7 +51,14 @@ func (d *UDPLinkDummy) Start() {
 }
 
 func (d *UDPLinkDummy) Stop() {
+
 	d.pc.Close()
+
+	d.parent.parent.logger.WithFields(logrus.Fields{
+		"scope": "udpLink/dummy/Stop",
+		"key":   d.peerAddr,
+	}).Info("dummy stopped")
+
 }
 
 func (d *UDPLinkDummy) handleConnection() {
@@ -70,9 +79,8 @@ func (d *UDPLinkDummy) handleConnection() {
 		d.active = time.Now()
 
 		if buf[0] == 0x3 {
-
+			// FIXME: This delay is from Shitama to Hisouten.
 			d.delay = time.Now().Sub(d.delayBase).Nanoseconds()
-
 		}
 
 		if buf[0] == 0x8 {
@@ -307,18 +315,18 @@ func (l *UDPLink) handleConnection() {
 			l.newDummy(peerAddr)
 		}
 
-		if data[0] == 0x1 {
+		dummy := l.dummies[key]
 
-			l.dummies[key].delayBase = time.Now()
+		if data[0] == 0x1 {
 
 			if bytes.Compare(data[1:17], data[17:33]) != 0 {
 
 				pre := l.sockAddrToUDPAddr(data[17:25])
-				dummy := l.dummies[pre.String()]
+				dest := l.dummies[pre.String()]
 
-				if dummy != nil {
+				if dest != nil {
 
-					localAddr := dummy.pc.LocalAddr().(*net.UDPAddr)
+					localAddr := dest.pc.LocalAddr().(*net.UDPAddr)
 
 					copy(data[17:], l.udpAddrToSockAddr(localAddr))
 
@@ -341,26 +349,46 @@ func (l *UDPLink) handleConnection() {
 
 				}
 
+			} else {
+
+				dummy.delayBase = time.Now()
+
 			}
 
 		}
 
-		l.dummies[key].pc.WriteTo(data, l.GameAddr)
+		if data[0] == 0x5 {
+
+			len := data[26]
+
+			if len < 0x10 {
+				dummy.profile = string(data[27 : 27+len])
+			}
+
+		}
+
+		dummy.pc.WriteTo(data, l.GameAddr)
 
 	}
 
 }
 
 func (l *UDPLink) newDummy(peerAddr *net.UDPAddr) *UDPLinkDummy {
+
 	p := NewUDPLinkDummy(l, peerAddr)
+
 	key := peerAddr.String()
 	l.dummies[key] = p
+
 	p.Start()
+
 	l.parent.logger.WithFields(logrus.Fields{
 		"scope": "udpLink/newDummy",
 		"key":   key,
 	}).Info("new dummy started")
+
 	return p
+
 }
 
 // Need optimization.

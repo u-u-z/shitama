@@ -149,7 +149,7 @@ func (c *Client) GetConnectionStatus() map[string]interface{} {
 	} else {
 
 		status["linkEstablished"] = true
-		status["linkAddr"] = c.link.pc.LocalAddr().String()
+		status["linkAddr"] = c.link.hostAddr
 		status["linkDelay"] = c.link.delay
 		status["linkDelayDelta"] = c.link.delayDelta
 		status["peers"] = make([]map[string]interface{}, 0)
@@ -160,8 +160,7 @@ func (c *Client) GetConnectionStatus() map[string]interface{} {
 			peer["remoteAddr"] = dummy.peerAddr.String()
 			peer["localAddr"] = dummy.pc.LocalAddr().String()
 			peer["delay"] = dummy.delay
-			// TODO
-			//peer["profile"] = "key"
+			peer["profile"] = dummy.profile
 			peer["active"] = dummy.active.UnixNano()
 
 			status["peers"] = append(status["peers"].([]map[string]interface{}), peer)
