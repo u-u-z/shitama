@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui network
+QT       += core gui network charts
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -27,14 +27,17 @@ DEFINES += SHITAMA_BUILD=\\\"$$(SHITAMA_BUILD)\\\" SHITAMA_COMMIT=\\\"$$(SHITAMA
 SOURCES += \
         main.cpp \
         mainwindow.cpp \
-    api.cpp
+    api.cpp \
+    connectiondialog.cpp
 
 HEADERS += \
         mainwindow.h \
-    api.h
+    api.h \
+    connectiondialog.h
 
 FORMS += \
-        mainwindow.ui
+        mainwindow.ui \
+    connectiondialog.ui
 
 RC_FILE = shitama.rc
 

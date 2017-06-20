@@ -118,13 +118,70 @@ func (c *Client) RequestRelay(shardAddr string, transport string) (hostAddr stri
 		return "ERROR_UNCONNECTED", "ERROR_UNCONNECTED"
 	}
 
-	hostAddr, guestAddr = c.Tunnel.zShardRelay(shardAddr, transport)
+	shard := c.findShardByAddr(shardAddr)
+
+	if shard == nil {
+		return "ERROR_SHARD_NOT_FOUND", "ERROR_SHARD_NOT_FOUND"
+	}
+
+	hostAddr, guestAddr = c.Tunnel.zShardRelay(shard.Addr, transport)
 
 	if !strings.Contains(hostAddr, "ERROR") && !strings.Contains(guestAddr, "ERROR") {
-		c.newLink(hostAddr, transport)
+		c.newLink(shard, hostAddr, transport)
 	}
 
 	return hostAddr, guestAddr
+
+}
+
+func (c *Client) GetConnectionStatus() map[string]interface{} {
+
+	status := make(map[string]interface{})
+
+	if c.link == nil {
+
+		status["linkEstablished"] = false
+		status["linkAddr"] = ""
+		status["linkDelay"] = 0
+		status["linkDelayDelta"] = 0
+		status["peers"] = make([]interface{}, 0)
+
+	} else {
+
+		status["linkEstablished"] = true
+		status["linkAddr"] = c.link.hostAddr.String()
+		status["linkDelay"] = c.link.delay
+		status["linkDelayDelta"] = c.link.delayDelta
+		status["peers"] = make([]map[string]interface{}, 0)
+
+		for _, dummy := range c.link.dummies {
+
+			peer := make(map[string]interface{})
+			peer["remoteAddr"] = dummy.peerAddr.String()
+			peer["localAddr"] = dummy.pc.LocalAddr().String()
+			peer["delay"] = dummy.delay
+			peer["profile"] = dummy.profile
+			peer["active"] = dummy.active.UnixNano()
+
+			status["peers"] = append(status["peers"].([]map[string]interface{}), peer)
+
+		}
+
+	}
+
+	return status
+
+}
+
+func (c *Client) findShardByAddr(addr string) *ShardInfo {
+
+	for _, shard := range c.shards {
+		if shard.Addr == addr {
+			return &shard
+		}
+	}
+
+	return nil
 
 }
 
@@ -215,7 +272,7 @@ WaitLoop:
 
 }
 
-func (c *Client) newLink(hostAddr string, transport string) {
+func (c *Client) newLink(shard *ShardInfo, hostAddr string, transport string) {
 
 	if c.link != nil {
 		c.link.Stop()
@@ -231,9 +288,19 @@ func (c *Client) newLink(hostAddr string, transport string) {
 
 	switch transport {
 	case "udp":
-		c.link = NewUDPLink(c, addr)
+
+		shardAddr, err := net.ResolveUDPAddr("udp4", shard.Addr)
+		if err != nil {
+			c.logger.WithFields(logrus.Fields{
+				"scope": "client/newLink",
+			}).Warn(err)
+		}
+
+		c.link = NewUDPLink(c, shardAddr, addr)
 		c.link.Start()
+
 		break
+
 	}
 
 }

@@ -12,6 +12,7 @@ public:
     QNetworkReply* GetStatus();
     QNetworkReply* GetShards();
     QNetworkReply* ShardRelay(QString shardAddr, QString transport);
+    QNetworkReply* GetConnectionStatus();
 private:
     QNetworkAccessManager* qnam;
 };

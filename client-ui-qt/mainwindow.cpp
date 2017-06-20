@@ -13,6 +13,7 @@
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
+    connectionDialog(new ConnectionDialog(this)),
     tray(new QSystemTrayIcon()),
     settings(new QSettings()),
     api(new API()),
@@ -34,6 +35,9 @@ MainWindow::MainWindow(QWidget *parent) :
         this->tray->showMessage(this->windowTitle(), tr("应用配置已清空。"), QSystemTrayIcon::Information, 1000);
     });
     connect(this->ui->actionExit, &QAction::triggered, this, &MainWindow::close);
+    connect(this->ui->actionConnectionView, &QAction::triggered, [=]() {
+        this->connectionDialog->show();
+    });
     connect(this->ui->actionCheckUpdates, &QAction::triggered, [=]() {
         QDesktopServices::openUrl(QUrl("https://github.com/evshiron/shitama/releases"));
     });

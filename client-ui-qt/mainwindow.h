@@ -8,6 +8,7 @@
 #include <QSettings>
 
 #include <api.h>
+#include <connectiondialog.h>
 
 namespace Ui {
 class MainWindow;
@@ -23,7 +24,11 @@ public:
 
 private:
     Ui::MainWindow* ui;
+
+    ConnectionDialog* connectionDialog;
+
     QSystemTrayIcon* tray;
+
     QSettings* settings;
     API* api;
     int statusWatcher;

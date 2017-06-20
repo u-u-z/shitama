@@ -202,7 +202,7 @@
     <property name="title">
      <string>视图</string>
     </property>
-    <addaction name="actionConnection"/>
+    <addaction name="actionConnectionView"/>
    </widget>
    <widget class="QMenu" name="menuHelp">
     <property name="title">
@@ -225,9 +225,9 @@
     <string>退出</string>
    </property>
   </action>
-  <action name="actionConnection">
+  <action name="actionConnectionView">
    <property name="enabled">
-    <bool>false</bool>
+    <bool>true</bool>
    </property>
    <property name="text">
     <string>连接信息</string>
