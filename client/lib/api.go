@@ -50,6 +50,11 @@ func (a *API) Start() {
 
 	})
 
+	server.HandleFunc("/api/connectionStatus", func(res http.ResponseWriter, req *http.Request) {
+		data := a.parent.GetConnectionStatus()
+		a.json(res, req, data)
+	})
+
 	go (func() {
 
 		err := http.ListenAndServe("127.0.0.1:61337", server)

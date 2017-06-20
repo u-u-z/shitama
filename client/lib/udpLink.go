@@ -11,9 +11,12 @@ import (
 )
 
 type UDPLinkDummy struct {
-	parent   *UDPLink
-	peerAddr *net.UDPAddr
-	pc       net.PacketConn
+	parent    *UDPLink
+	peerAddr  *net.UDPAddr
+	pc        net.PacketConn
+	delay     int64
+	delayBase time.Time
+	active    time.Time
 }
 
 func NewUDPLinkDummy(parent *UDPLink, peerAddr *net.UDPAddr) *UDPLinkDummy {
@@ -21,6 +24,9 @@ func NewUDPLinkDummy(parent *UDPLink, peerAddr *net.UDPAddr) *UDPLinkDummy {
 	d := new(UDPLinkDummy)
 	d.parent = parent
 	d.peerAddr = peerAddr
+	d.delay = 65535
+	d.delayBase = time.Now()
+	d.active = time.Now()
 
 	return d
 
@@ -59,6 +65,14 @@ func (d *UDPLinkDummy) handleConnection() {
 				"scope": "udpLink/dummy/handleConnection",
 			}).Warn(err)
 			break
+		}
+
+		d.active = time.Now()
+
+		if buf[0] == 0x3 {
+
+			d.delay = time.Now().Sub(d.delayBase).Nanoseconds()
+
 		}
 
 		if buf[0] == 0x8 {
@@ -134,20 +148,28 @@ func (d *UDPLinkDummy) handleConnection() {
 }
 
 type UDPLink struct {
-	GameAddr net.Addr
-	parent   *Client
-	pc       net.PacketConn
-	dummies  map[string]*UDPLinkDummy
-	hostAddr net.Addr
+	GameAddr   net.Addr
+	parent     *Client
+	pc         net.PacketConn
+	shardAddr  net.Addr
+	hostAddr   net.Addr
+	dummies    map[string]*UDPLinkDummy
+	delay      int64
+	delayDelta int64
+	active     time.Time
 }
 
-func NewUDPLink(parent *Client, hostAddr net.Addr) *UDPLink {
+func NewUDPLink(parent *Client, shardAddr net.Addr, hostAddr net.Addr) *UDPLink {
 
 	l := new(UDPLink)
 	l.GameAddr, _ = net.ResolveUDPAddr("udp4", "127.0.0.1:10800")
 	l.parent = parent
+	l.shardAddr = shardAddr
 	l.hostAddr = hostAddr
 	l.dummies = make(map[string]*UDPLinkDummy)
+	l.delay = 65535
+	l.delayDelta = 0
+	l.active = time.Now()
 
 	return l
 
@@ -166,6 +188,7 @@ func (l *UDPLink) Start() {
 	l.pc = pc
 
 	go l.keepAlive()
+	go l.updateDelay()
 	go l.handleConnection()
 
 }
@@ -200,6 +223,66 @@ func (l *UDPLink) keepAlive() {
 
 }
 
+func (l *UDPLink) updateDelay() {
+
+	pc, err := net.ListenPacket("udp4", "0.0.0.0:0")
+
+	if err != nil {
+		l.parent.logger.WithFields(logrus.Fields{
+			"scope": "udpLink/updateDelay",
+		}).Fatal(err)
+	}
+
+	go (func() {
+
+		for {
+
+			buf := make([]byte, 8)
+			binary.BigEndian.PutUint64(buf, uint64(time.Now().UnixNano()))
+
+			_, err := pc.WriteTo(buf, l.shardAddr)
+
+			if err != nil {
+				l.parent.logger.WithFields(logrus.Fields{
+					"scope": "udpLink/updateRelay/sender",
+				}).Warn(err)
+				break
+			}
+
+			time.Sleep(1 * time.Second)
+
+		}
+
+	})()
+
+	go (func() {
+
+		buf := make([]byte, 1536)
+
+		for {
+
+			_, _, err := pc.ReadFrom(buf)
+
+			if err != nil {
+				l.parent.logger.WithFields(logrus.Fields{
+					"scope": "udpLink/updateRelay/receiver",
+				}).Warn(err)
+				break
+			}
+
+			now := uint64(time.Now().UnixNano())
+			then := binary.BigEndian.Uint64(buf)
+			delay := int64(now - then)
+
+			l.delayDelta = delay - l.delay
+			l.delay = delay
+
+		}
+
+	})()
+
+}
+
 func (l *UDPLink) handleConnection() {
 
 	buf := make([]byte, 1536)
@@ -215,6 +298,8 @@ func (l *UDPLink) handleConnection() {
 			break
 		}
 
+		l.active = time.Now()
+
 		peerAddr, data := l.unpackData(buf[:n])
 		key := peerAddr.String()
 
@@ -223,6 +308,8 @@ func (l *UDPLink) handleConnection() {
 		}
 
 		if data[0] == 0x1 {
+
+			l.dummies[key].delayBase = time.Now()
 
 			if bytes.Compare(data[1:17], data[17:33]) != 0 {
 
