@@ -23,21 +23,19 @@ func NewEcho(parent *Shard) *Echo {
 
 func (e *Echo) Start() {
 
-	if echoPort, ok := e.parent.Config["echoPort"].(int); ok {
+	echoPort := e.parent.Config["echoPort"].(int)
 
-		pc, err := net.ListenPacket("udp4", fmt.Sprintf("0.0.0.0:%d", echoPort))
+	pc, err := net.ListenPacket("udp4", fmt.Sprintf("0.0.0.0:%d", echoPort))
 
-		if err != nil {
-			e.parent.logger.WithFields(logrus.Fields{
-				"scope": "echo/Start",
-			}).Fatal(err)
-		}
-
-		e.pc = pc
-
-		go e.handle()
-
+	if err != nil {
+		e.parent.logger.WithFields(logrus.Fields{
+			"scope": "echo/Start",
+		}).Fatal(err)
 	}
+
+	e.pc = pc
+
+	go e.handle()
 
 }
 

@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"errors"
 	"strconv"
 	"strings"
 	"time"
@@ -48,9 +47,21 @@ func NewTunnel(parent *Shard) *Tunnel {
 
 func (t *Tunnel) Start() {
 
-	if holderKcpAddr, ok := t.parent.Config["holderKcpAddr"].(string); ok {
+	holderKcpAddr := t.parent.Config["holderKcpAddr"].(string)
+	holderKcpAddrAlt := t.parent.Config["holderKcpAddrAlt"].(string)
 
-		conn, err := kcp.DialWithOptions(holderKcpAddr, nil, 10, 3)
+	var err error
+	var conn *kcp.UDPSession
+
+	conn, err = kcp.DialWithOptions(holderKcpAddr, nil, 10, 3)
+
+	if err != nil {
+
+		t.parent.logger.WithFields(logrus.Fields{
+			"scope": "tunnel/Start",
+		}).Warn(err)
+
+		conn, err = kcp.DialWithOptions(holderKcpAddrAlt, nil, 10, 3)
 
 		if err != nil {
 			t.parent.logger.WithFields(logrus.Fields{
@@ -58,15 +69,11 @@ func (t *Tunnel) Start() {
 			}).Fatal(err)
 		}
 
-		t.conn = conn
-
-		go t.handleConnection(conn)
-
-	} else {
-		t.parent.logger.WithFields(logrus.Fields{
-			"scope": "tunnel/Start",
-		}).Fatal(errors.New("ERROR_CONFIG_INVALID"))
 	}
+
+	t.conn = conn
+
+	go t.handleConnection(conn)
 
 }
 
