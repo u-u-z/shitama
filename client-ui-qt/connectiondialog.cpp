@@ -112,6 +112,7 @@ void ConnectionDialog::updateDelayChart() {
     // Also there is a need for reseting the ranges.
     this->chart->createDefaultAxes();
     this->chart->axisX()->setRange(0, 31);
+    this->chart->axisX()->hide();
     this->chart->axisY()->setRange(0, 100);
 
     /*
