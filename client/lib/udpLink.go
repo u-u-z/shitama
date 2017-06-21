@@ -25,7 +25,7 @@ func NewUDPLinkDummy(parent *UDPLink, peerAddr *net.UDPAddr) *UDPLinkDummy {
 	d := new(UDPLinkDummy)
 	d.parent = parent
 	d.peerAddr = peerAddr
-	d.delay = 65535
+	d.delay = 0
 	d.delayBase = time.Now()
 	d.profile = "key"
 	d.active = time.Now()
@@ -64,6 +64,32 @@ func (d *UDPLinkDummy) Stop() {
 
 func (d *UDPLinkDummy) updateDelay() {
 
+	go (func() {
+
+		for {
+
+			d.delayBase = time.Now()
+
+			buf := make([]byte, 37)
+			buf[0] = 0x1
+			copy(buf[1:17], d.parent.udpAddrToSockAddr(d.peerAddr))
+			copy(buf[17:33], d.parent.udpAddrToSockAddr(d.peerAddr))
+
+			_, err := d.parent.pc.WriteTo(d.parent.packData(d.peerAddr, buf), d.parent.hostAddr)
+
+			if err != nil {
+				d.parent.parent.logger.WithFields(logrus.Fields{
+					"scope": "udpLink/dummy/updateDelay/sender",
+				}).Warn(err)
+				break
+			}
+
+			time.Sleep(1 * time.Second)
+
+		}
+
+	})()
+
 }
 
 func (d *UDPLinkDummy) handleConnection() {
@@ -83,10 +109,12 @@ func (d *UDPLinkDummy) handleConnection() {
 
 		d.active = time.Now()
 
-		if buf[0] == 0x3 {
-			// FIXME: This delay is from Shitama to Hisouten.
-			d.delay = time.Now().Sub(d.delayBase).Nanoseconds()
-		}
+		/*
+			if buf[0] == 0x3 {
+				// FIXME: This delay is from Shitama to Hisouten.
+				d.delay = time.Now().Sub(d.delayBase).Nanoseconds()
+			}
+		*/
 
 		if buf[0] == 0x8 {
 
@@ -180,7 +208,7 @@ func NewUDPLink(parent *Client, shardAddr net.Addr, hostAddr net.Addr) *UDPLink 
 	l.shardAddr = shardAddr
 	l.hostAddr = hostAddr
 	l.dummies = make(map[string]*UDPLinkDummy)
-	l.delay = 65535
+	l.delay = 0
 	l.delayDelta = 0
 	l.active = time.Now()
 
@@ -322,6 +350,11 @@ func (l *UDPLink) handleConnection() {
 
 		dummy := l.dummies[key]
 
+		if data[0] == 0x3 {
+			// FIXME: This delay is from Shitama to Hisouten.
+			dummy.delay = time.Now().Sub(dummy.delayBase).Nanoseconds()
+		}
+
 		if data[0] == 0x1 {
 
 			if bytes.Compare(data[1:17], data[17:33]) != 0 {
@@ -355,9 +388,9 @@ func (l *UDPLink) handleConnection() {
 				}
 
 			} else {
-
-				dummy.delayBase = time.Now()
-
+				/*
+					dummy.delayBase = time.Now()
+				*/
 			}
 
 		}
