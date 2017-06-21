@@ -149,7 +149,7 @@ func (c *Client) GetConnectionStatus() map[string]interface{} {
 	} else {
 
 		status["linkEstablished"] = true
-		status["linkAddr"] = c.link.hostAddr
+		status["linkAddr"] = c.link.hostAddr.String()
 		status["linkDelay"] = c.link.delay
 		status["linkDelayDelta"] = c.link.delayDelta
 		status["peers"] = make([]map[string]interface{}, 0)
