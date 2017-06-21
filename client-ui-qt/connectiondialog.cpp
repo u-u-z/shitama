@@ -102,7 +102,7 @@ void ConnectionDialog::updateDelayChart() {
         series->setName(it.key());
 
         for(int i = 0; i < 32; i++) {
-            series->append(i, it.value().value(i));
+            series->append(31 - i, it.value().value(i));
         }
 
         this->chart->addSeries(series);

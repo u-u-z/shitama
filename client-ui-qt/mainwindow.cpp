@@ -13,7 +13,7 @@
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
     ui(new Ui::MainWindow),
-    connectionDialog(new ConnectionDialog(this)),
+    connectionDialog(new ConnectionDialog()),
     tray(new QSystemTrayIcon()),
     settings(new QSettings()),
     api(new API()),
