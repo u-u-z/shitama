@@ -46,6 +46,7 @@ func (d *UDPLinkDummy) Start() {
 
 	d.pc = pc
 
+	go d.updateDelay()
 	go d.handleConnection()
 
 }
@@ -58,6 +59,10 @@ func (d *UDPLinkDummy) Stop() {
 		"scope": "udpLink/dummy/Stop",
 		"key":   d.peerAddr,
 	}).Info("dummy stopped")
+
+}
+
+func (d *UDPLinkDummy) updateDelay() {
 
 }
 
@@ -252,7 +257,7 @@ func (l *UDPLink) updateDelay() {
 
 			if err != nil {
 				l.parent.logger.WithFields(logrus.Fields{
-					"scope": "udpLink/updateRelay/sender",
+					"scope": "udpLink/updateDelay/sender",
 				}).Warn(err)
 				break
 			}
@@ -273,7 +278,7 @@ func (l *UDPLink) updateDelay() {
 
 			if err != nil {
 				l.parent.logger.WithFields(logrus.Fields{
-					"scope": "udpLink/updateRelay/receiver",
+					"scope": "udpLink/updateDelay/receiver",
 				}).Warn(err)
 				break
 			}
