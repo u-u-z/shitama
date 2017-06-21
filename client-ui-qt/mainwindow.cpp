@@ -43,7 +43,7 @@ MainWindow::MainWindow(QWidget *parent) :
     });
     connect(this->ui->actionAbout, &QAction::triggered, [=]() {
         QMessageBox::about(nullptr, this->windowTitle(), tr("Shitama r%1\r\n"
-                                                            "Commit: %2").arg(SHITAMA_BUILD).arg(SHITAMA_COMMIT));
+                                                            "Commit: %2").arg(SHITAMA_BUILD_ID).arg(SHITAMA_COMMIT));
     });
 
     connect(this->ui->updateShards, &QPushButton::clicked, this, &MainWindow::updateShards);
