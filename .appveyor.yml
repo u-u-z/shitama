@@ -22,9 +22,6 @@ deploy:
   release: r$(APPVEYOR_BUILD_ID)
   description: |
     Shitama r$(APPVEYOR_BUILD_ID) for $(APPVEYOR_REPO_COMMIT)
-
-    Latest build: https://ci.appveyor.com/api/projects/evshiron/shitama/artifacts/dist/Shitama.7z?branch=master
-    Alternative: http://orwlb5cqk.bkt.clouddn.com/Shitama.7z
   draft: true
   prerelease: true
   auth_token:
@@ -37,4 +34,5 @@ artifacts:
 on_success:
   - curl -o qshell.exe http://devtools.qiniu.com/2.0.8/qshell-windows-x86.exe
   - qshell account %QINIU_AK% %QINIU_SK%
-  - qshell fput shitama Shitama.7z .\dist\Shitama.7z true
+  - qshell fput shitama Shitama-r%APPVEYOR_BUILD_ID%.7z .\dist\Shitama.7z
+  - qshell copy -overwrite shitama Shitama-r%APPVEYOR_BUILD_ID%.7z shitama Shitama.7z
