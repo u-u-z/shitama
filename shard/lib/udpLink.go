@@ -1,7 +1,6 @@
 package shard
 
 import (
-	"encoding/binary"
 	"fmt"
 	"net"
 	"strings"
@@ -9,6 +8,7 @@ import (
 
 	"bytes"
 
+	"github.com/evshiron/shitama/common"
 	"github.com/sirupsen/logrus"
 )
 
@@ -114,7 +114,7 @@ func (l *UDPLink) handleHostConnection() {
 				}).Info("host bound")
 			}
 		} else {
-			guestAddr, data := l.unpackData(buf[:n])
+			guestAddr, data := common.UnpackData(buf[:n])
 			l.pcGuest.WriteTo(data, guestAddr)
 		}
 
@@ -146,60 +146,8 @@ func (l *UDPLink) handleGuestConnection() {
 			break
 		}
 
-		l.pcHost.WriteTo(l.packData(udpAddr, buf[:n]), l.hostAddr)
+		l.pcHost.WriteTo(common.PackData(udpAddr, buf[:n]), l.hostAddr)
 
 	}
-
-}
-
-func (l *UDPLink) packData(addr *net.UDPAddr, data []byte) []byte {
-
-	/*
-
-		buffer := new(bytes.Buffer)
-
-		encoder := gob.NewEncoder(buffer)
-		encoder.Encode(addr)
-		encoder.Encode(data)
-
-		return buffer.Bytes()
-
-	*/
-
-	buf := make([]byte, len(data)+6)
-
-	copy(buf[:4], addr.IP[len(addr.IP)-4:])
-	binary.BigEndian.PutUint16(buf[4:6], uint16(addr.Port))
-	copy(buf[6:], data)
-
-	return buf
-
-}
-
-func (l *UDPLink) unpackData(buf []byte) (addr *net.UDPAddr, data []byte) {
-
-	/*
-
-		buffer := bytes.NewBuffer(buf)
-
-		decoder := gob.NewDecoder(buffer)
-		decoder.Decode(&addr)
-		decoder.Decode(&data)
-
-		return addr, data
-
-	*/
-
-	addr = new(net.UDPAddr)
-	addr.IP = make([]byte, 16)
-	addr.IP[10] = 255
-	addr.IP[11] = 255
-	copy(addr.IP[len(addr.IP)-4:], buf[:4])
-	addr.Port = int(binary.BigEndian.Uint16(buf[4:6]))
-
-	data = make([]byte, len(buf)-6)
-	copy(data, buf[6:])
-
-	return addr, data
 
 }

@@ -1,11 +1,13 @@
 package client
 
 import (
-	"encoding/binary"
+	"fmt"
 	"net"
 	"sort"
 	"strings"
 	"time"
+
+	"os"
 
 	"github.com/sirupsen/logrus"
 )
@@ -40,6 +42,15 @@ func NewClient() *Client {
 
 	c.logger = logrus.New()
 
+	switch os.Getenv("LOGLEVEL") {
+	case "debug":
+		c.logger.Level = logrus.DebugLevel
+		break
+	default:
+		c.logger.Level = logrus.InfoLevel
+		break
+	}
+
 	c.Config = make(map[string]interface{})
 	c.Config["holderKcpAddr"] = "shitama.tldr.run:31337"
 	c.Config["holderKcpAddrAlt"] = "115.159.87.170:31337"
@@ -54,7 +65,7 @@ func NewClient() *Client {
 
 		c.logger.WithFields(logrus.Fields{
 			"scope": "client/handleConnected",
-		}).Println("connected")
+		}).Info("connected")
 
 		c.connected = true
 
@@ -64,7 +75,7 @@ func NewClient() *Client {
 
 		c.logger.WithFields(logrus.Fields{
 			"scope": "client/handleDisconnected",
-		}).Println("disconnected")
+		}).Info("disconnected")
 
 		c.connected = false
 
@@ -185,89 +196,34 @@ func (c *Client) findShardByAddr(addr string) *ShardInfo {
 
 }
 
-func (c *Client) updateRTTs(shards []ShardInfo) {
+func (c *Client) tcpPing(ip string, ports []uint16) time.Duration {
 
-	type Pair struct {
-		key   string
-		value uint64
-	}
+	for _, port := range ports {
 
-	pc, err := net.ListenPacket("udp4", "0.0.0.0:0")
+		addr := fmt.Sprintf("%s:%d", ip, port)
 
-	if err != nil {
-		c.logger.WithFields(logrus.Fields{
-			"scope": "client/updateRTTs",
-		}).Fatal(err)
-	}
+		start := time.Now()
 
-	buf := make([]byte, 8)
-	binary.BigEndian.PutUint64(buf, uint64(time.Now().UnixNano()))
+		conn, err := net.Dial("tcp4", addr)
+		defer conn.Close()
 
-	for _, shard := range shards {
-		addr, err := net.ResolveUDPAddr("udp4", shard.Addr)
 		if err != nil {
-			c.logger.WithFields(logrus.Fields{
-				"scope": "client/updateRTTs",
-			}).Warn(err)
 			continue
 		}
-		for i := 0; i < 16; i++ {
-			pc.WriteTo(buf, addr)
-		}
+
+		return time.Since(start)
+
 	}
 
-	shardRTTs := make(map[string][]uint64)
+	return 9999 * time.Second
 
-	pairs := make(chan Pair)
+}
 
-	go (func() {
-
-		for {
-
-			_, addr, err := pc.ReadFrom(buf)
-
-			if err != nil {
-				c.logger.WithFields(logrus.Fields{
-					"scope": "client/updateRTTs",
-				}).Warn(err)
-				break
-			}
-
-			key := addr.String()
-			now := uint64(time.Now().UnixNano())
-			then := binary.BigEndian.Uint64(buf)
-
-			pairs <- Pair{key: key, value: now - then}
-
-		}
-
-	})()
-
-WaitLoop:
-	for {
-		select {
-		case v := <-pairs:
-			if _, ok := shardRTTs[v.key]; !ok {
-				shardRTTs[v.key] = make([]uint64, 0)
-			}
-			shardRTTs[v.key] = append(shardRTTs[v.key], v.value)
-			break
-		case <-time.After(1 * time.Second):
-			break WaitLoop
-		}
-	}
-
-	pc.Close()
+func (c *Client) updateRTTs(shards []ShardInfo) {
 
 	for idx := range shards {
-		shard := &shards[idx]
-		if rtts, ok := shardRTTs[shard.Addr]; ok {
-			var sum uint64
-			for _, v := range rtts {
-				sum += v
-			}
-			shard.RTT = float32(sum) / 1e6 / float32(len(rtts))
-		}
+		rtt := c.tcpPing(shards[idx].IP, []uint16{22, 3389})
+		shards[idx].RTT = float32(rtt) / 1e6
 	}
 
 }

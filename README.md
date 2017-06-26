@@ -3,6 +3,6 @@
 
 [中文介绍](./README.zh_CN.md)
 
-# License
+## License
 
 AGPL-3.0

@@ -7,6 +7,7 @@ import (
 
 	"encoding/binary"
 
+	"github.com/evshiron/shitama/common"
 	"github.com/sirupsen/logrus"
 )
 
@@ -66,16 +67,17 @@ func (d *UDPLinkDummy) updateDelay() {
 
 	go (func() {
 
+		buf := make([]byte, 37)
+
 		for {
 
 			d.delayBase = time.Now()
 
-			buf := make([]byte, 37)
 			buf[0] = 0x1
-			copy(buf[1:17], d.parent.udpAddrToSockAddr(d.peerAddr))
-			copy(buf[17:33], d.parent.udpAddrToSockAddr(d.peerAddr))
+			copy(buf[1:17], common.UDPAddrToSockAddr(d.peerAddr))
+			copy(buf[17:33], common.UDPAddrToSockAddr(d.peerAddr))
 
-			_, err := d.parent.pc.WriteTo(d.parent.packData(d.peerAddr, buf), d.parent.hostAddr)
+			_, err := d.parent.pc.WriteTo(common.PackData(d.peerAddr, buf), d.parent.hostAddr)
 
 			if err != nil {
 				d.parent.parent.logger.WithFields(logrus.Fields{
@@ -109,66 +111,46 @@ func (d *UDPLinkDummy) handleConnection() {
 
 		d.active = time.Now()
 
-		/*
-			if buf[0] == 0x3 {
-				// FIXME: This delay is from Shitama to Hisouten.
-				d.delay = time.Now().Sub(d.delayBase).Nanoseconds()
-			}
-		*/
+		// Duplicate the data.
+		data := make([]byte, n)
+		copy(data, buf[:n])
 
-		if buf[0] == 0x8 {
+		go d.handleReceivedPacket(data)
 
-			len := int(binary.LittleEndian.Uint32(buf[1:5]))
+	}
 
-			for i := 0; i < len; i++ {
+}
 
-				pre := d.parent.sockAddrToUDPAddr(buf[5+i*16:])
-				dummy := d.parent.findDummyByAddr(pre)
+func (d *UDPLinkDummy) handleReceivedPacket(data []byte) {
 
-				if dummy != nil {
-
-					copy(buf[5+i*16:], d.parent.udpAddrToSockAddr(dummy.peerAddr))
-
-					/*
-						post := d.parent.sockAddrToUDPAddr(buf[5+i*16:])
-
-						d.parent.parent.logger.WithFields(logrus.Fields{
-							"scope": "udpLink/dummy/handleConnection",
-							"pre":   pre,
-							"post":  post,
-						}).Info("rewrite 0x8 packet")
-					*/
-
-				} else {
-
-					d.parent.parent.logger.WithFields(logrus.Fields{
-						"scope": "udpLink/dummy/handleConnection",
-						"pre":   pre,
-					}).Warn("rewrite 0x8 packet mismatch")
-
-				}
-
-			}
-
+	/*
+		if data[0] == 0x3 {
+			// FIXME: This delay is from Shitama to Hisouten.
+			d.delay = time.Now().Sub(d.delayBase).Nanoseconds()
 		}
+	*/
 
-		if buf[0] == 0x2 {
+	if data[0] == 0x8 {
 
-			pre := d.parent.sockAddrToUDPAddr(buf[1:])
+		len := int(binary.LittleEndian.Uint32(data[1:5]))
+
+		for i := 0; i < len; i++ {
+
+			pre := common.SockAddrToUDPAddr(data[5+i*16:])
 			dummy := d.parent.findDummyByAddr(pre)
 
 			if dummy != nil {
 
-				copy(buf[1:], d.parent.udpAddrToSockAddr(dummy.peerAddr))
+				copy(data[5+i*16:], common.UDPAddrToSockAddr(dummy.peerAddr))
 
 				/*
-					post := d.parent.sockAddrToUDPAddr(buf[1:])
+					post := common.SockAddrToUDPAddr(data[5+i*16:])
 
 					d.parent.parent.logger.WithFields(logrus.Fields{
 						"scope": "udpLink/dummy/handleConnection",
 						"pre":   pre,
 						"post":  post,
-					}).Info("rewrite 0x2 packet")
+					}).Info("rewrite 0x8 packet")
 				*/
 
 			} else {
@@ -176,15 +158,45 @@ func (d *UDPLinkDummy) handleConnection() {
 				d.parent.parent.logger.WithFields(logrus.Fields{
 					"scope": "udpLink/dummy/handleConnection",
 					"pre":   pre,
-				}).Warn("rewrite 0x2 packet mismatch")
+				}).Warn("rewrite 0x8 packet mismatch")
 
 			}
 
 		}
 
-		d.parent.pc.WriteTo(d.parent.packData(d.peerAddr, buf[:n]), d.parent.hostAddr)
+	}
+
+	if data[0] == 0x2 {
+
+		pre := common.SockAddrToUDPAddr(data[1:])
+		dummy := d.parent.findDummyByAddr(pre)
+
+		if dummy != nil {
+
+			copy(data[1:], common.UDPAddrToSockAddr(dummy.peerAddr))
+
+			/*
+				post := common.SockAddrToUDPAddr(buf[1:])
+
+				d.parent.parent.logger.WithFields(logrus.Fields{
+					"scope": "udpLink/dummy/handleConnection",
+					"pre":   pre,
+					"post":  post,
+				}).Info("rewrite 0x2 packet")
+			*/
+
+		} else {
+
+			d.parent.parent.logger.WithFields(logrus.Fields{
+				"scope": "udpLink/dummy/handleConnection",
+				"pre":   pre,
+			}).Warn("rewrite 0x2 packet mismatch")
+
+		}
 
 	}
+
+	d.parent.pc.WriteTo(common.PackData(d.peerAddr, data), d.parent.hostAddr)
 
 }
 
@@ -276,9 +288,10 @@ func (l *UDPLink) updateDelay() {
 
 	go (func() {
 
+		buf := make([]byte, 8)
+
 		for {
 
-			buf := make([]byte, 8)
 			binary.BigEndian.PutUint64(buf, uint64(time.Now().UnixNano()))
 
 			_, err := pc.WriteTo(buf, l.shardAddr)
@@ -341,7 +354,8 @@ func (l *UDPLink) handleConnection() {
 
 		l.active = time.Now()
 
-		peerAddr, data := l.unpackData(buf[:n])
+		peerAddr, data := common.UnpackData(buf[:n])
+
 		key := peerAddr.String()
 
 		if _, ok := l.dummies[key]; !ok {
@@ -350,64 +364,73 @@ func (l *UDPLink) handleConnection() {
 
 		dummy := l.dummies[key]
 
-		if data[0] == 0x3 {
-			// FIXME: This delay is from Shitama to Hisouten.
-			dummy.delay = time.Now().Sub(dummy.delayBase).Nanoseconds()
-		}
+		// data is duplicated.
+		go l.handleReceivedPacket(dummy, data)
 
-		if data[0] == 0x1 {
+	}
 
-			if bytes.Compare(data[1:17], data[17:33]) != 0 {
+}
 
-				pre := l.sockAddrToUDPAddr(data[17:25])
-				dest := l.dummies[pre.String()]
+func (l *UDPLink) handleReceivedPacket(dummy *UDPLinkDummy, data []byte) {
 
-				if dest != nil {
+	if data[0] == 0x3 {
+		// FIXME: This delay is from Shitama to Hisouten.
+		dummy.delay = time.Now().Sub(dummy.delayBase).Nanoseconds()
+	}
 
-					localAddr := dest.pc.LocalAddr().(*net.UDPAddr)
+	if data[0] == 0x1 {
 
-					copy(data[17:], l.udpAddrToSockAddr(localAddr))
+		if bytes.Compare(data[1:17], data[17:33]) != 0 {
 
-					/*
-						post := l.sockAddrToUDPAddr(data[17:25])
+			pre := common.SockAddrToUDPAddr(data[17:25])
+			dest := l.dummies[pre.String()]
 
-						l.parent.logger.WithFields(logrus.Fields{
-							"scope": "udpLink/handleConnection",
-							"pre":   pre,
-							"post":  post,
-						}).Info("rewrite 0x1 packet")
-					*/
+			if dest != nil {
 
-				} else {
+				localAddr := dest.pc.LocalAddr().(*net.UDPAddr)
+
+				copy(data[17:], common.UDPAddrToSockAddr(localAddr))
+
+				/*
+					post := common.SockAddrToUDPAddr(data[17:25])
 
 					l.parent.logger.WithFields(logrus.Fields{
 						"scope": "udpLink/handleConnection",
 						"pre":   pre,
-					}).Warn("rewrite 0x1 packet mismatch")
-
-				}
+						"post":  post,
+					}).Info("rewrite 0x1 packet")
+				*/
 
 			} else {
-				/*
-					dummy.delayBase = time.Now()
-				*/
+
+				l.parent.logger.WithFields(logrus.Fields{
+					"scope": "udpLink/handleConnection",
+					"pre":   pre,
+				}).Warn("rewrite 0x1 packet mismatch")
+
 			}
 
+		} else {
+			/*
+				dummy.delayBase = time.Now()
+			*/
 		}
-
-		if data[0] == 0x5 {
-
-			len := data[26]
-
-			if len < 0x10 {
-				dummy.profile = string(data[27 : 27+len])
-			}
-
-		}
-
-		dummy.pc.WriteTo(data, l.GameAddr)
 
 	}
+
+	if data[0] == 0x5 {
+
+		len := data[26]
+
+		if len < 0x10 {
+			dummy.profile = string(data[27 : 27+len])
+		}
+
+	}
+
+	//log.Print(dummy.pc)
+
+	dummy.pc.WriteTo(data, l.GameAddr)
 
 }
 
@@ -439,82 +462,5 @@ func (l *UDPLink) findDummyByAddr(addr net.Addr) *UDPLinkDummy {
 	}
 
 	return nil
-
-}
-
-func (l *UDPLink) udpAddrToSockAddr(addr *net.UDPAddr) []byte {
-
-	buf := make([]byte, 8)
-
-	binary.BigEndian.PutUint16(buf[:2], 0x200)
-	binary.BigEndian.PutUint16(buf[2:4], uint16(addr.Port))
-	copy(buf[4:8], addr.IP[len(addr.IP)-4:])
-
-	return buf
-
-}
-
-func (l *UDPLink) sockAddrToUDPAddr(buf []byte) *net.UDPAddr {
-
-	addr := new(net.UDPAddr)
-	addr.IP = make([]byte, 16)
-	addr.IP[10] = 255
-	addr.IP[11] = 255
-	copy(addr.IP[len(addr.IP)-4:], buf[4:8])
-	addr.Port = int(binary.BigEndian.Uint16(buf[2:4]))
-
-	return addr
-
-}
-
-func (l *UDPLink) packData(addr *net.UDPAddr, data []byte) []byte {
-
-	/*
-
-		buffer := new(bytes.Buffer)
-
-		encoder := gob.NewEncoder(buffer)
-		encoder.Encode(addr)
-		encoder.Encode(data)
-
-		return buffer.Bytes()
-
-	*/
-
-	buf := make([]byte, len(data)+6)
-
-	copy(buf[:4], addr.IP[len(addr.IP)-4:])
-	binary.BigEndian.PutUint16(buf[4:6], uint16(addr.Port))
-	copy(buf[6:], data)
-
-	return buf
-
-}
-
-func (l *UDPLink) unpackData(buf []byte) (addr *net.UDPAddr, data []byte) {
-
-	/*
-
-		buffer := bytes.NewBuffer(buf)
-
-		decoder := gob.NewDecoder(buffer)
-		decoder.Decode(&addr)
-		decoder.Decode(&data)
-
-		return addr, data
-
-	*/
-
-	addr = new(net.UDPAddr)
-	addr.IP = make([]byte, 16)
-	addr.IP[10] = 255
-	addr.IP[11] = 255
-	copy(addr.IP[len(addr.IP)-4:], buf[:4])
-	addr.Port = int(binary.BigEndian.Uint16(buf[4:6]))
-
-	data = make([]byte, len(buf)-6)
-	copy(data, buf[6:])
-
-	return addr, data
 
 }

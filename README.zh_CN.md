@@ -11,10 +11,13 @@
 
 「Shitama」应能在「Windows XP」及以后版本中运行。
 
-下载地址列表：
+稳定版下载地址：
 
 * [七牛云存储](http://orwlb5cqk.bkt.clouddn.com/Shitama.7z)
-* [AppVeyor](https://ci.appveyor.com/api/projects/evshiron/shitama/artifacts/dist/Shitama.7z?branch=master)
+
+开发版下载地址：
+
+* [七牛云存储](http://orwlb5cqk.bkt.clouddn.com/Shitama-dev.7z)
 
 历史版本可从「[GitHub Releases](https://github.com/evshiron/shitama/releases)」中下载。
 

@@ -132,7 +132,14 @@ void MainWindow::updateStatus() {
         auto status = QJsonDocument::fromJson(reply->readAll()).object();
         auto connected = status["connected"].toBool();
 
-        this->setConnected(connected);
+        if(status.contains("connected")) {
+
+            auto connected = status["connected"].toBool();
+            qDebug() << "updateStatus" << status;
+
+            this->setConnected(connected);
+
+        }
 
     });
 

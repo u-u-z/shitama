@@ -32,7 +32,5 @@ artifacts:
     name: Shitama
 
 on_success:
-  - curl -o qshell.exe http://devtools.qiniu.com/2.0.8/qshell-windows-x86.exe
-  - qshell account %QINIU_AK% %QINIU_SK%
-  - qshell fput shitama Shitama-r%APPVEYOR_BUILD_ID%.7z .\dist\Shitama.7z
-  - qshell copy -overwrite shitama Shitama-r%APPVEYOR_BUILD_ID%.7z shitama Shitama.7z
+  - if "%APPVEYOR_REPO_BRANCH%"=="master" (.\scripts\publish_client_master.bat %QINIU_AK% %QINIU_SK% %APPVEYOR_BUILD_ID%)
+  - if "%APPVEYOR_REPO_BRANCH%"=="dev" (.\scripts\publish_client_dev.bat %QINIU_AK% %QINIU_SK% %APPVEYOR_BUILD_ID%)
