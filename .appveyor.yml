@@ -21,7 +21,7 @@ deploy:
   provider: GitHub
   release: r$(APPVEYOR_BUILD_ID)
   description: |
-    Shitama r$(APPVEYOR_BUILD_ID) for $(APPVEYOR_REPO_COMMIT)
+    Shitama r$(APPVEYOR_BUILD_ID) for commit $(APPVEYOR_REPO_COMMIT) in branch $(APPVEYOR_REPO_BRANCH)
   draft: true
   prerelease: true
   auth_token:
