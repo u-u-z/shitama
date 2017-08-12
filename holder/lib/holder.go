@@ -98,6 +98,7 @@ func NewHolder() *Holder {
 			"scope": "holder/handlePeerDisconnected",
 		}).Info("handle peer disconnected")
 
+		h.findClientAndRemove(conn, session)
 		h.findShardAndRemove(conn, session)
 
 	}, false)
@@ -137,6 +138,24 @@ func (h *Holder) findShardAndRemove(conn *kcp.UDPSession, session *yamux.Session
 
 	if idx >= 0 {
 		h.shards = append(h.shards[0:idx], h.shards[idx+1:]...)
+	}
+
+	return idx
+
+}
+
+func (h *Holder) findClientAndRemove(conn *kcp.UDPSession, session *yamux.Session) int {
+
+	idx := -1
+
+	for i, client := range h.clients {
+		if client.conn == conn && client.session == session {
+			idx = i
+		}
+	}
+
+	if idx >= 0 {
+		h.clients = append(h.clients[0:idx], h.clients[idx+1:]...)
 	}
 
 	return idx
